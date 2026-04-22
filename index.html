@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Exchange Terminal | 柜台交易终端</title>
+    <style>
+        :root { --primary: #1e8449; --dark: #000000; --bg: #ffffff; }
+        /* 强制全员最粗体，保护老人视力 */
+        * { box-sizing: border-box; font-weight: 900 !important; font-family: "Microsoft YaHei", "Arial", sans-serif; } 
+        body { background: #eaeeef; margin: 0; display: flex; justify-content: center; height: 100vh; overflow: hidden; padding: 10px; }
+        
+        .card { background: white; width: 100%; max-width: 450px; padding: 20px; border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); position: relative; display: flex; flex-direction: column; }
+        
+        /* 状态条 */
+        .sync-bar { text-align: center; font-size: 12px; padding: 5px; border-radius: 10px; margin-bottom: 15px; border: 2px solid #000; }
+        .on { background: #d4edda; color: #155724; }
+        .off { background: #f8d7da; color: #721c24; }
+
+        .box { background: #f0f4f8; border: 4px solid #000; border-radius: 20px; padding: 15px; margin-bottom: 10px; }
+        
+        /* 双语标签样式 */
+        .label-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; }
+        .lang-cn { font-size: 18px; color: #000; display: block; }
+        .lang-en { font-size: 13px; color: #666; display: block; text-transform: uppercase; }
+
+        .input-row { display: flex; align-items: center; gap: 12px; }
+        input.amount { flex: 1; border: none; background: transparent; font-size: 45px; color: var(--dark); outline: none; width: 100px; }
+        select { border: 4px solid #000; background: #fff; padding: 10px; font-size: 20px; border-radius: 12px; height: 55px; }
+
+        .swap-btn { background: #000; color: #fff; width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: -15px auto; z-index: 2; cursor: pointer; border: 5px solid #fff; font-size: 28px; }
+
+        .rate-info { text-align: right; font-size: 14px; color: var(--primary); margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="status" class="sync-bar on">● Connecting... / 正在连接...</div>
+    
+    <div style="text-align:center; margin-bottom:15px;">
+        <div style="font-size:22px;">EXCHANGE 换汇结算</div>
+    </div>
+
+    <div class="box">
+        <div class="label-row">
+            <div>
+                <span class="lang-cn">您支付</span>
+                <span class="lang-en">YOU GIVE</span>
+            </div>
+            <div id="rateShow" class="rate-info">---</div>
+        </div>
+        <div class="input-row">
+            <input type="text" class="amount" id="val1" placeholder="0" onclick="this.select()">
+            <select id="cur1"></select>
+        </div>
+    </div>
+
+    <div class="swap-btn" onclick="swap()">⇅</div>
+
+    <div class="box" style="margin-top: 15px;">
+        <div class="label-row">
+            <div>
+                <span class="lang-cn">您获得</span>
+                <span class="lang-en">YOU RECEIVE</span>
+            </div>
+        </div>
+        <div class="input-row">
+            <input type="text" class="amount" id="val2" placeholder="0" onclick="this.select()">
+            <select id="cur2"></select>
+        </div>
+    </div>
+
+    <div style="flex:1"></div>
+    <div style="text-align:center; font-size:11px; color:#999; line-height:1.4;">
+        Real-time rates synced with manager<br>汇率由后台实时同步，请确认无误后交易
+    </div>
+</div>
+
+<script>
+    // ======= 注意：这里改为您 GitHub 上的原始数据链接 =======
+    const RAW_URL = 'https://raw.githubusercontent.com/Desperado1979/peng/main/rates.json'; 
+
+    const curs = ["AUD", "VUV", "CNY", "USD", "FJD", "PGK", "SBD", "TOP", "WST", "NZD"];
+    let cloudRates = {};
+
+    function init() {
+        const s1 = document.getElementById('cur1'), s2 = document.getElementById('cur2');
+        curs.forEach(c => { s1.add(new Option(c,c)); s2.add(new Option(c,c)); });
+        s1.value = "AUD"; s2.value = "VUV";
+
+        document.getElementById('val1').addEventListener('input', () => calc('from'));
+        document.getElementById('val2').addEventListener('input', () => calc('to'));
+        [s1, s2].forEach(s => s.addEventListener('change', () => calc('from')));
+
+        sync();
+        setInterval(sync, 5000); 
+    }
+
+    async function sync() {
+        const status = document.getElementById('status');
+        try {
+            const res = await fetch(RAW_URL + '?t=' + Date.now());
+            if(!res.ok) throw new Error();
+            cloudRates = await res.json();
+            status.innerText = "● Live Rate Synced / 汇率已同步";
+            status.className = "sync-bar on";
+            calc('from'); 
+        } catch (e) {
+            status.innerText = "❌ Connection Error / 同步失败";
+            status.className = "sync-bar off";
+        }
+    }
+
+    function calc(dir) {
+        const c1 = document.getElementById('cur1').value, c2 = document.getElementById('cur2').value;
+        const v1 = document.getElementById('val1'), v2 = document.getElementById('val2');
+        let r = null;
+
+        if(cloudRates[`${c2}-${c1}`]) r = 1 / cloudRates[`${c2}-${c1}`].sell;
+        else if(cloudRates[`${c1}-${c2}`]) r = cloudRates[`${c1}-${c2}`].buy;
+
+        if(!r) { document.getElementById('rateShow').innerText = "No Rate / 未定价"; return; }
+        document.getElementById('rateShow').innerText = `Rate: ${r.toFixed(4)}`;
+
+        try {
+            if(dir === 'from') {
+                const raw = eval(v1.value.replace(/,/g,"")) || 0;
+                v2.value = (raw * r).toLocaleString(undefined, {maximumFractionDigits:2});
+            } else {
+                const raw = eval(v2.value.replace(/,/g,"")) || 0;
+                v1.value = (raw / r).toLocaleString(undefined, {maximumFractionDigits:2});
+            }
+        } catch(e) {}
+    }
+
+    function swap() {
+        const s1 = document.getElementById('cur1'), s2 = document.getElementById('cur2');
+        [s1.value, s2.value] = [s2.value, s1.value];
+        calc('from');
+    }
+
+    init();
+</script>
+</body>
+</html>

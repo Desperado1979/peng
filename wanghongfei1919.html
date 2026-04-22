@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>价格遥控器</title>
+    <style>
+        * { box-sizing: border-box; font-weight: bold; font-family: sans-serif; }
+        body { background: #f4f7f6; padding: 20px; margin: 0; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #333; background: #4a90e2; color: white; padding: 10px; border-radius: 8px; }
+        .section { margin-bottom: 20px; border: 2px solid #eee; padding: 15px; border-radius: 10px; }
+        label { display: block; margin-bottom: 10px; color: #4a90e2; font-size: 14px; }
+        select, input { width: 100%; padding: 12px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; outline: none; }
+        select:focus, input:focus { border-color: #4a90e2; }
+        button { width: 100%; padding: 18px; background: #27ae60; color: white; border: none; border-radius: 10px; font-size: 20px; cursor: pointer; transition: 0.3s; }
+        button:active { background: #219150; transform: scale(0.98); }
+        #log { text-align: center; margin-top: 15px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>改价遥控器</h2>
+
+    <div class="section">
+        <label>1. 选要改的币种</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <select id="base"></select>
+            <span>/</span>
+            <select id="target"></select>
+        </div>
+    </div>
+
+    <div class="section">
+        <label>2. 卖出价 (老板卖货)</label>
+        <input type="number" id="sell" placeholder="例如: 82" step="0.0001">
+    </div>
+
+    <div class="section">
+        <label>3. 买入价 (老板收货)</label>
+        <input type="number" id="buy" placeholder="例如: 78" step="0.0001">
+    </div>
+
+    <button onclick="updateRate()">点这里 → 同步到柜台</button>
+    <div id="log"></div>
+    <button onclick="clearToken()" style="margin-top:20px; background:#e74c3c; font-size:14px; padding:10px;">清除钥匙(重新输入)</button>
+</div>
+
+<script>
+    // 基础配置
+    const CONFIG = {
+        owner: 'Desperado1979',
+        repo: 'peng',
+        path: 'rates.json'
+    };
+
+    const curs = ["AUD", "VUV", "CNY", "USD", "FJD", "PGK", "SBD", "TOP", "WST", "NZD"];
+    
+    function init() {
+        const b = document.getElementById('base'), t = document.getElementById('target');
+        curs.forEach(c => { b.add(new Option(c,c)); t.add(new Option(c,c)); });
+        b.value = "AUD"; t.value = "VUV";
+    }
+
+    // 获取钥匙的逻辑
+    function getToken() {
+        let token = localStorage.getItem('gh_token');
+        if (!token || token.length < 10) {
+            token = prompt("请输入您的安全钥匙 (Token):");
+            if (token) localStorage.setItem('gh_token', token);
+        }
+        return token;
+    }
+
+    function clearToken() {
+        localStorage.removeItem('gh_token');
+        alert("钥匙已清除，下次点击同步时需重新输入。");
+    }
+
+    async function updateRate() {
+        const token = getToken();
+        if (!token) return;
+
+        const base = document.getElementById('base').value;
+        const target = document.getElementById('target').value;
+        const sell = parseFloat(document.getElementById('sell').value);
+        const buy = parseFloat(document.getElementById('buy').value);
+        const log = document.getElementById('log');
+
+        if (!sell || !buy) { alert("请填写价格"); return; }
+
+        log.innerText = "正在同步，请稍后...";
+        log.style.color = "blue";
+
+        try {
+            // 1. 获取旧文件获取 SHA 
+            const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`;
+            const res = await fetch(url, { headers: { Authorization: `token ${token}` } });
+            
+            let sha = "", oldContent = {};
+            if (res.ok) {
+                const data = await res.json();
+                sha = data.sha;
+                oldContent = JSON.parse(atob(data.content));
+            }
+
+            // 2. 合并新价格
+            oldContent[`${base}-${target}`] = { sell, buy, time: new Date().toLocaleString() };
+
+            // 3. 上传到 GitHub
+            const putRes = await fetch(url, {
+                method: 'PUT',
+                headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: `Update ${base}-${target}`,
+                    content: btoa(JSON.stringify(oldContent, null, 2)),
+                    sha: sha || undefined
+                })
+            });
+
+            if (putRes.ok) {
+                log.innerText = "✅ 同步成功！柜台已更新";
+                log.style.color = "green";
+            } else {
+                throw new Error();
+            }
+        } catch (e) {
+            log.innerText = "❌ 失败：钥匙错误或网络问题";
+            log.style.color = "red";
+            if(confirm("同步失败，是否重新输入钥匙？")) clearToken();
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
