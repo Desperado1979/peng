@@ -3,135 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>价格遥控器</title>
+    <title>汇率定价设定 - 实时版</title>
     <style>
-        * { box-sizing: border-box; font-weight: bold; font-family: sans-serif; }
-        body { background: #f4f7f6; padding: 20px; margin: 0; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #333; background: #4a90e2; color: white; padding: 10px; border-radius: 8px; }
-        .section { margin-bottom: 20px; border: 2px solid #eee; padding: 15px; border-radius: 10px; }
-        label { display: block; margin-bottom: 10px; color: #4a90e2; font-size: 14px; }
-        select, input { width: 100%; padding: 12px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; outline: none; }
-        select:focus, input:focus { border-color: #4a90e2; }
-        button { width: 100%; padding: 18px; background: #27ae60; color: white; border: none; border-radius: 10px; font-size: 20px; cursor: pointer; transition: 0.3s; }
-        button:active { background: #219150; transform: scale(0.98); }
-        #log { text-align: center; margin-top: 15px; font-size: 14px; }
+        :root { --green: #1e8449; --bg: #f5f5f5; }
+        * { box-sizing: border-box; font-family: "Microsoft YaHei", sans-serif; font-weight: bold; }
+        body { background: #1e8449; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 15px; }
+        .card { background: white; width: 100%; max-width: 400px; border-radius: 30px; padding: 25px; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .close-btn { position: absolute; right: 25px; top: 25px; font-size: 24px; color: #ccc; cursor: pointer; }
+        h2 { font-size: 20px; margin-top: 0; }
+        .ref-box { background: #fff9db; border-radius: 12px; padding: 12px; text-align: center; color: #856404; margin-bottom: 20px; font-size: 14px; border: 1px solid #ffeeba; }
+        .setup-box { background: #f8f9fa; border-radius: 20px; border: 1px solid #e9ecef; padding: 20px; }
+        .currency-row { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 25px; }
+        select { border: 2px solid #dee2e6; border-radius: 12px; padding: 8px 15px; font-size: 18px; background: white; }
+        .price-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .price-item { text-align: center; }
+        .price-label { font-size: 12px; color: #c0392b; margin-bottom: 8px; height: 30px; display: flex; align-items: center; justify-content: center; }
+        .buy-label { color: #2980b9; }
+        input { width: 100%; border: 2px solid #dee2e6; border-radius: 15px; padding: 12px; font-size: 22px; text-align: center; outline: none; background: #fff; }
+        input:focus { border-color: var(--green); }
+        .margin-label { font-size: 12px; margin-top: 8px; color: #c0392b; min-height: 16px; }
+        .buy-margin { color: #2980b9; }
+        .save-btn { background: var(--green); color: white; width: 100%; padding: 18px; border: none; border-radius: 18px; font-size: 18px; margin-top: 25px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 12px rgba(30,132,73,0.3); }
+        .save-btn:active { transform: scale(0.96); }
+        #log { text-align: center; font-size: 12px; margin-top: 10px; color: #666; }
+        .loading-dot { color: #f39c12; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>改价遥控器</h2>
+<div class="card">
+    <div class="close-btn">✕</div>
+    <h2>汇率定价设定</h2>
+    
+    <div id="refPrice" class="ref-box">正在获取实时国际汇率...</div>
 
-    <div class="section">
-        <label>1. 选要改的币种</label>
-        <div style="display: flex; gap: 10px; align-items: center;">
+    <div class="setup-box">
+        <div class="currency-row">
             <select id="base"></select>
-            <span>/</span>
+            <div style="font-size: 20px;">⇄</div>
             <select id="target"></select>
+        </div>
+
+        <div class="price-grid">
+            <div class="price-item">
+                <div class="price-label">我卖 1 <span class="base-name">AUD</span><br>收 <span class="target-name">VUV</span></div>
+                <input type="number" id="sell" step="0.01" oninput="calcMargin()">
+                <div id="sellMargin" class="margin-label">毛利: --%</div>
+            </div>
+            <div class="price-item">
+                <div class="price-label buy-label">我买 1 <span class="base-name">AUD</span><br>付 <span class="target-name">VUV</span></div>
+                <input type="number" id="buy" step="0.01" oninput="calcMargin()">
+                <div id="buyMargin" class="margin-label buy-margin">毛利: --%</div>
+            </div>
         </div>
     </div>
 
-    <div class="section">
-        <label>2. 卖出价 (老板卖货)</label>
-        <input type="number" id="sell" placeholder="例如: 82" step="0.0001">
-    </div>
-
-    <div class="section">
-        <label>3. 买入价 (老板收货)</label>
-        <input type="number" id="buy" placeholder="例如: 78" step="0.0001">
-    </div>
-
-    <button onclick="updateRate()">点这里 → 同步到柜台</button>
-    <div id="log"></div>
-    <button onclick="clearToken()" style="margin-top:20px; background:#e74c3c; font-size:14px; padding:10px;">清除钥匙(重新输入)</button>
+    <button class="save-btn" onclick="updateRate()">确认保存</button>
+    <div id="log">数据仅保存在您的私有仓库</div>
 </div>
 
 <script>
-    // 基础配置
-    const CONFIG = {
-        owner: 'Desperado1979',
-        repo: 'peng',
-        path: 'rates.json'
-    };
+    const CONFIG = { owner: 'Desperado1979', repo: 'peng', path: 'rates.json' };
+    const curs = ["AUD", "VUV", "CNY", "USD", "NZD", "FJD", "PGK"];
+    let realTimeRate = 0;
 
-    const curs = ["AUD", "VUV", "CNY", "USD", "FJD", "PGK", "SBD", "TOP", "WST", "NZD"];
-    
+    async function getRealRate() {
+        const base = document.getElementById('base').value;
+        const target = document.getElementById('target').value;
+        const refBox = document.getElementById('refPrice');
+        
+        refBox.innerHTML = `<span class="loading-dot">正在查询 ${base} 实时价格...</span>`;
+        
+        try {
+            // 使用免费公开接口 (无需key)
+            const res = await fetch(`https://open.er-api.com/v6/latest/${base}`);
+            const data = await res.json();
+            if(data.rates && data.rates[target]) {
+                realTimeRate = data.rates[target];
+                refBox.innerText = `实时参考：1 ${base} = ${realTimeRate.toFixed(4)} ${target}`;
+                calcMargin();
+            } else {
+                refBox.innerText = "暂时无法获取该币种汇率";
+            }
+        } catch(e) {
+            refBox.innerText = "网络连接失败，请手动对比";
+        }
+    }
+
+    function calcMargin() {
+        const sell = parseFloat(document.getElementById('sell').value);
+        const buy = parseFloat(document.getElementById('buy').value);
+        if(realTimeRate > 0) {
+            if(sell > 0) {
+                const sm = ((sell - realTimeRate) / sell * 100).toFixed(1);
+                document.getElementById('sellMargin').innerText = `毛利: ${sm}%`;
+            }
+            if(buy > 0) {
+                const bm = ((realTimeRate - buy) / realTimeRate * 100).toFixed(1);
+                document.getElementById('buyMargin').innerText = `毛利: ${bm}%`;
+            }
+        }
+    }
+
     function init() {
         const b = document.getElementById('base'), t = document.getElementById('target');
         curs.forEach(c => { b.add(new Option(c,c)); t.add(new Option(c,c)); });
         b.value = "AUD"; t.value = "VUV";
+        
+        const updateNames = () => {
+            document.querySelectorAll('.base-name').forEach(el => el.innerText = b.value);
+            document.querySelectorAll('.target-name').forEach(el => el.innerText = t.value);
+            getRealRate();
+        };
+        
+        b.onchange = t.onchange = updateNames;
+        updateNames();
     }
 
-    // 获取钥匙的逻辑
+    // --- GitHub 同步逻辑 ---
     function getToken() {
-        let token = localStorage.getItem('gh_token');
-        if (!token || token.length < 10) {
-            token = prompt("请输入您的安全钥匙 (Token):");
-            if (token) localStorage.setItem('gh_token', token);
-        }
-        return token;
-    }
-
-    function clearToken() {
-        localStorage.removeItem('gh_token');
-        alert("钥匙已清除，下次点击同步时需重新输入。");
+        let t = localStorage.getItem('gh_token');
+        if (!t) { t = prompt("请输入您的安全钥匙(Token):"); if(t) localStorage.setItem('gh_token', t); }
+        return t;
     }
 
     async function updateRate() {
-        const token = getToken();
-        if (!token) return;
-
-        const base = document.getElementById('base').value;
-        const target = document.getElementById('target').value;
-        const sell = parseFloat(document.getElementById('sell').value);
-        const buy = parseFloat(document.getElementById('buy').value);
+        const token = getToken(); if (!token) return;
         const log = document.getElementById('log');
+        const base = document.getElementById('base').value, target = document.getElementById('target').value;
+        const sell = parseFloat(document.getElementById('sell').value), buy = parseFloat(document.getElementById('buy').value);
 
-        if (!sell || !buy) { alert("请填写价格"); return; }
+        if(!sell || !buy) { alert("请输入价格"); return; }
 
-        log.innerText = "正在同步，请稍后...";
-        log.style.color = "blue";
-
+        log.innerText = "⏳ 正在同步至柜台...";
         try {
-            // 1. 获取旧文件获取 SHA 
             const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`;
             const res = await fetch(url, { headers: { Authorization: `token ${token}` } });
+            let sha = "", oldData = {};
+            if (res.ok) { const d = await res.json(); sha = d.sha; oldData = JSON.parse(atob(d.content)); }
             
-            let sha = "", oldContent = {};
-            if (res.ok) {
-                const data = await res.json();
-                sha = data.sha;
-                oldContent = JSON.parse(atob(data.content));
-            }
+            oldData[`${base}-${target}`] = { sell, buy, time: new Date().toLocaleString(), ref: realTimeRate };
 
-            // 2. 合并新价格
-            oldContent[`${base}-${target}`] = { sell, buy, time: new Date().toLocaleString() };
-
-            // 3. 上传到 GitHub
             const putRes = await fetch(url, {
                 method: 'PUT',
-                headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
+                headers: { Authorization: `token ${token}` },
                 body: JSON.stringify({
-                    message: `Update ${base}-${target}`,
-                    content: btoa(JSON.stringify(oldContent, null, 2)),
+                    message: "Update Rate",
+                    content: btoa(JSON.stringify(oldData, null, 2)),
                     sha: sha || undefined
                 })
             });
 
-            if (putRes.ok) {
-                log.innerText = "✅ 同步成功！柜台已更新";
-                log.style.color = "green";
-            } else {
-                throw new Error();
-            }
+            if (putRes.ok) { 
+                log.innerText = "✅ 保存成功！"; 
+                log.style.color = "green"; 
+                setTimeout(()=> { log.innerText = "数据已同步"; log.style.color="#666"; }, 3000);
+            } else { throw new Error(); }
         } catch (e) {
-            log.innerText = "❌ 失败：钥匙错误或网络问题";
-            log.style.color = "red";
-            if(confirm("同步失败，是否重新输入钥匙？")) clearToken();
+            log.innerText = "❌ 同步失败";
+            if(confirm("同步失败，是否重新输入钥匙？")) localStorage.removeItem('gh_token');
         }
     }
-
     init();
 </script>
 </body>
